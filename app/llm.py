@@ -40,6 +40,7 @@ class LLM:
             self.api_key = llm_config.api_key
             self.api_version = llm_config.api_version
             self.base_url = llm_config.base_url
+            self.timeout = getattr(llm_config, "timeout", 60)  # Default to 60 seconds if not specified
             if self.api_type == "azure":
                 self.client = AsyncAzureOpenAI(
                     base_url=self.base_url,
@@ -107,6 +108,7 @@ class LLM:
         system_msgs: Optional[List[Union[dict, Message]]] = None,
         stream: bool = True,
         temperature: Optional[float] = None,
+        timeout: Optional[int] = None,
     ) -> str:
         """
         Send a prompt to the LLM and get the response.
@@ -133,6 +135,9 @@ class LLM:
             else:
                 messages = self.format_messages(messages)
 
+            # Use timeout from parameter, instance, or default
+            request_timeout = timeout if timeout is not None else self.timeout
+            
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -141,6 +146,7 @@ class LLM:
                     max_tokens=self.max_tokens,
                     temperature=temperature or self.temperature,
                     stream=False,
+                    timeout=request_timeout,
                 )
                 if not response.choices or not response.choices[0].message.content:
                     raise ValueError("Empty or invalid response from LLM")
@@ -153,6 +159,7 @@ class LLM:
                 max_tokens=self.max_tokens,
                 temperature=temperature or self.temperature,
                 stream=True,
+                timeout=request_timeout,
             )
 
             collected_messages = []
@@ -185,7 +192,7 @@ class LLM:
         self,
         messages: List[Union[dict, Message]],
         system_msgs: Optional[List[Union[dict, Message]]] = None,
-        timeout: int = 60,
+        timeout: Optional[int] = None,
         tools: Optional[List[dict]] = None,
         tool_choice: Literal["none", "auto", "required"] = "auto",
         temperature: Optional[float] = None,
@@ -229,6 +236,9 @@ class LLM:
                     if not isinstance(tool, dict) or "type" not in tool:
                         raise ValueError("Each tool must be a dict with 'type' field")
 
+            # Use timeout from parameter, instance, or default
+            request_timeout = timeout if timeout is not None else self.timeout
+            
             # Set up the completion request
             response = await self.client.chat.completions.create(
                 model=self.model,
@@ -237,7 +247,7 @@ class LLM:
                 max_tokens=self.max_tokens,
                 tools=tools,
                 tool_choice=tool_choice,
-                timeout=timeout,
+                timeout=request_timeout,
                 **kwargs,
             )
 

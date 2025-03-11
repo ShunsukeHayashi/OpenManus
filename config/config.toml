@@ -5,6 +5,7 @@ base_url = "http://localhost:8000/v1"
 api_key = "${LOCAL_API_KEY}" # Uses environment variable
 max_tokens = 4096
 temperature = 0.0
+timeout = -1 # Set timeout to infinite
 
 # [llm] #AZURE OPENAI:
 # api_type= 'azure'
