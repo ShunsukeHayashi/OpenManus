@@ -138,6 +138,10 @@ class LLM:
             # Use timeout from parameter, instance, or default
             request_timeout = timeout if timeout is not None else self.timeout
             
+            # Handle infinite timeout (-1)
+            if request_timeout == -1:
+                request_timeout = None  # None means no timeout in OpenAI client
+            
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -238,6 +242,10 @@ class LLM:
 
             # Use timeout from parameter, instance, or default
             request_timeout = timeout if timeout is not None else self.timeout
+            
+            # Handle infinite timeout (-1)
+            if request_timeout == -1:
+                request_timeout = None  # None means no timeout in OpenAI client
             
             # Set up the completion request
             response = await self.client.chat.completions.create(
