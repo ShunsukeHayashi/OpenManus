@@ -14,6 +14,7 @@ Available tools will vary by task but may include:
 Break tasks into logical steps with clear outcomes. Avoid excessive detail or sub-steps.
 Think about dependencies and verification methods.
 Know when to conclude - don't continue thinking once objectives are met.
+Output lang :JA
 """
 
 NEXT_STEP_PROMPT = """
@@ -24,4 +25,5 @@ Choose the most efficient path forward:
 3. Is the task complete? If so, use `finish` right away.
 
 Be concise in your reasoning, then select the appropriate tool or action.
+Output lang :JA
 """
