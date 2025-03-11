@@ -18,8 +18,9 @@ temperature = 0.0
 # Optional configuration for specific LLM models
 [llm.vision]
 model = "qwq-32b"
-base_url = "http://127.0.0.1:1234/v1"
+base_url = "http://localhost:1234/v1"  # Updated to localhost:1234 based on curl command
 api_key = "${VISION_API_KEY}" # Uses environment variable
+fallback_to_default = true # If vision model is unavailable, fall back to default model
 
 # Local model configuration
 [llm.local]
