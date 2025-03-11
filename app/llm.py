@@ -190,7 +190,7 @@ class LLM:
 
     @retry(
         wait=wait_random_exponential(min=1, max=60),
-        stop=stop_after_attempt(6),
+        stop=stop_after_attempt(3),  # Reduced retry attempts to fail faster and trigger fallback
     )
     async def ask_tool(
         self,
@@ -200,6 +200,7 @@ class LLM:
         tools: Optional[List[dict]] = None,
         tool_choice: Literal["none", "auto", "required"] = "auto",
         temperature: Optional[float] = None,
+        fallback_to_default: bool = True,  # Add fallback option
         **kwargs,
     ):
         """
@@ -266,17 +267,66 @@ class LLM:
 
             return response.choices[0].message
 
-        except ValueError as ve:
-            logger.error(f"Validation error in ask_tool: {ve}")
-            raise
-        except OpenAIError as oe:
-            if isinstance(oe, AuthenticationError):
+        except (ValueError, OpenAIError, Exception) as e:
+            # Log the error
+            if isinstance(e, ValueError):
+                logger.error(f"Validation error in ask_tool: {e}")
+            elif isinstance(e, AuthenticationError):
                 logger.error("Authentication failed. Check API key.")
-            elif isinstance(oe, RateLimitError):
+            elif isinstance(e, RateLimitError):
                 logger.error("Rate limit exceeded. Consider increasing retry attempts.")
-            elif isinstance(oe, APIError):
-                logger.error(f"API error: {oe}")
-            raise
+            elif isinstance(e, APIError):
+                logger.error(f"API error: {e}")
+            else:
+                logger.error(f"Unexpected error in ask_tool: {e}")
+            
+            # Handle fallback if enabled
+            if fallback_to_default:
+                logger.warning(f"Falling back to regular ask method due to error with tools API")
+                try:
+                    # Create text-only message from the tool-enabled message
+                    content = await self._fallback_to_regular_ask(messages, temperature)
+                    return {"role": "assistant", "content": content}
+                except Exception as fallback_error:
+                    logger.error(f"Fallback also failed: {fallback_error}")
+                    # Re-raise the original error if fallback fails
+                    raise e
+            else:
+                # If fallback is disabled, just raise the original error
+                raise
+    
+    async def _fallback_to_regular_ask(self, messages, temperature=None):
+        """
+        Fallback method to use regular ask without tools when tools are not supported.
+        
+        Args:
+            messages: List of formatted messages
+            temperature: Sampling temperature for the response
+            
+        Returns:
+            str: The generated response
+        """
+        try:
+            # Extract the user's query from the messages
+            user_messages = []
+            for msg in messages:
+                if msg["role"] == "user" and "content" in msg and msg["content"]:
+                    user_messages.append(msg["content"])
+            
+            if not user_messages:
+                # If no user messages found, use a generic prompt
+                user_messages = ["Please respond to the previous messages."]
+            
+            # Use the last user message
+            query = user_messages[-1]
+            
+            # Use regular ask method with just the user query
+            return await self.ask(
+                [{"role": "user", "content": query}],
+                stream=False,
+                temperature=temperature,
+            )
+            
         except Exception as e:
-            logger.error(f"Unexpected error in ask_tool: {e}")
-            raise
+            logger.error(f"Error in fallback method: {e}")
+            return "I apologize, but I encountered an error processing your request."
