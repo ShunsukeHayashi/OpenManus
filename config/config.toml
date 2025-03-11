@@ -1,0 +1,16 @@
+# Global LLM configuration
+[llm]
+model = "llama-3-70b"
+base_url = "http://localhost:8000/v1"
+api_key = "${LOCAL_API_KEY}" # Uses environment variable
+max_tokens = 4096
+temperature = 0.0
+
+# [llm] #AZURE OPENAI:
+# api_type= 'azure'
+# model = "YOUR_MODEL_NAME" #"gpt-4o-mini"
+# base_url = "{YOUR_AZURE_ENDPOINT.rstrip('/')}/openai/deployments/{AZURE_DEPOLYMENT_ID}"
+# api_key = "AZURE API KEY"
+# max_tokens = 8096
+# temperature = 0.0
+# api_version="AZURE API VERSION" #"2024-08-01-preview"
