@@ -1,5 +1,14 @@
-# Global LLM configuration
+# Global LLM configuration (Default model)
 [llm]
+model = "claude-3-7-sonnet-20250219"
+base_url = "https://api.anthropic.com/v1"
+api_key = "${ANTHROPIC_API_KEY}" # Uses environment variable
+max_tokens = 4096
+temperature = 0.0
+timeout = 180 # Set timeout to 3 minutes
+
+# Local LLM configuration
+[llm.local]
 model = "llama-3-70b"
 base_url = "http://localhost:8000/v1"
 api_key = "${LOCAL_API_KEY}" # Uses environment variable
