@@ -7,6 +7,14 @@ max_tokens = 4096
 temperature = 0.0
 timeout = 180 # Set timeout to 3 minutes
 
+# xAI Grok-2 configuration
+[llm.grok]
+model = "grok-2-latest"
+api_key = "${XAI_API_KEY}" # Uses environment variable
+max_tokens = 4096 
+temperature = 0.0
+timeout = 180 # Set timeout to 3 minutes
+
 # Local LLM configuration
 [llm.local]
 model = "llama-3-70b"

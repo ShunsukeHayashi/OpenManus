@@ -1,4 +1,4 @@
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union, Any
 
 from openai import (
     APIError,
@@ -9,10 +9,13 @@ from openai import (
     RateLimitError,
 )
 from tenacity import retry, stop_after_attempt, wait_random_exponential
+import os
 
 from app.config import LLMSettings, config
 from app.logger import logger  # Assuming a logger is set up in your app
 from app.schema import Message
+from app.anthropic_client import AnthropicClient
+from app.grok_client import GrokClient
 
 
 class LLM:
@@ -41,14 +44,46 @@ class LLM:
             self.api_version = llm_config.api_version
             self.base_url = llm_config.base_url
             self.timeout = getattr(llm_config, "timeout", 60)  # Default to 60 seconds if not specified
-            if self.api_type == "azure":
+            self.config_name = config_name
+            
+            # Process API key from environment variables if needed
+            if self.api_key and self.api_key.startswith("${") and self.api_key.endswith("}"):
+                env_var_name = self.api_key[2:-1]  # Remove ${ and }
+                self.api_key = os.environ.get(env_var_name, "")
+                if not self.api_key:
+                    logger.warning(f"Environment variable {env_var_name} not found or empty for API key")
+            
+            # Check for Anthropic Claude models
+            if "claude" in self.model.lower():
+                logger.info(f"Initializing Anthropic client for model: {self.model}")
+                self.client = AnthropicClient(
+                    api_key=self.api_key,
+                    model=self.model,
+                    timeout=self.timeout if self.timeout != -1 else None
+                )
+                self.client_type = "anthropic"
+            # Check for xAI Grok models
+            elif "grok" in self.model.lower():
+                logger.info(f"Initializing Grok client for model: {self.model}")
+                self.client = GrokClient(
+                    api_key=self.api_key,
+                    model=self.model,
+                    timeout=self.timeout if self.timeout != -1 else None
+                )
+                self.client_type = "grok"
+            # Azure OpenAI
+            elif self.api_type == "azure":
                 self.client = AsyncAzureOpenAI(
                     base_url=self.base_url,
                     api_key=self.api_key,
                     api_version=self.api_version,
                 )
+                self.client_type = "azure"
             else:
                 self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+                self.client_type = "openai"
+            
+            logger.info(f"Initialized LLM with {self.client_type} client for model: {self.model}")
 
     @staticmethod
     def format_messages(messages: List[Union[dict, Message]]) -> List[dict]:
@@ -142,6 +177,55 @@ class LLM:
             if request_timeout == -1:
                 request_timeout = None  # None means no timeout in OpenAI client
             
+            # Handle special client types separately
+            if hasattr(self, 'client_type'):
+                if self.client_type == "anthropic":
+                    logger.info(f"Using Anthropic client for ask method with model: {self.model}")
+                    
+                    # Call Anthropic client's chat_completion method
+                    response = await self.client.chat_completion(
+                        messages=messages,
+                        max_tokens=self.max_tokens,
+                        temperature=temperature or self.temperature,
+                        stream=stream
+                    )
+                    
+                    # Return the content as a string
+                    if not response or not response.get("choices") or not response["choices"][0]["message"]["content"]:
+                        raise ValueError("Empty or invalid response from Anthropic LLM")
+                        
+                    return response["choices"][0]["message"]["content"]
+                
+                elif self.client_type == "grok":
+                    logger.info(f"Using Grok client for ask method with model: {self.model}")
+                    
+                    # Call Grok client's chat_completions_create method
+                    response = await self.client.chat_completions_create(
+                        messages=messages,
+                        max_tokens=self.max_tokens,
+                        temperature=temperature or self.temperature,
+                        stream=stream
+                    )
+                    
+                    # Handle streaming differently for Grok if needed
+                    if stream:
+                        # This would need custom implementation based on Grok's streaming API
+                        # For now, let's use non-streaming as fallback
+                        logger.warning("Streaming not fully implemented for Grok, falling back to non-streaming")
+                        response = await self.client.chat_completions_create(
+                            messages=messages,
+                            max_tokens=self.max_tokens,
+                            temperature=temperature or self.temperature,
+                            stream=False
+                        )
+                    
+                    # Return the content as a string
+                    if not response or not response.get("choices") or not response["choices"][0]["message"]["content"]:
+                        raise ValueError("Empty or invalid response from Grok LLM")
+                        
+                    return response["choices"][0]["message"]["content"]
+            
+            # Regular OpenAI client
             if not stream:
                 # Non-streaming request
                 response = await self.client.chat.completions.create(
@@ -248,7 +332,34 @@ class LLM:
             if request_timeout == -1:
                 request_timeout = None  # None means no timeout in OpenAI client
             
-            # Set up the completion request
+            # Handle special client types for tool use
+            if hasattr(self, 'client_type'):
+                if self.client_type == "anthropic":
+                    logger.warning("Tool use not directly supported by Anthropic client, falling back to regular ask")
+                    content = await self._fallback_to_regular_ask(messages, temperature)
+                    return {"role": "assistant", "content": content}
+                
+                elif self.client_type == "grok":
+                    logger.info(f"Using Grok client for ask_tool with model: {self.model}")
+                    
+                    # Call Grok client's chat_completions_create method with tools
+                    response = await self.client.chat_completions_create(
+                        messages=messages,
+                        max_tokens=self.max_tokens,
+                        temperature=temperature or self.temperature,
+                        tools=tools,
+                        tool_choice=tool_choice,
+                        **kwargs
+                    )
+                    
+                    # Check if response is valid
+                    if not response or not response.get("choices") or not response["choices"][0]["message"]:
+                        raise ValueError("Empty or invalid response from Grok LLM")
+                    
+                    # Return in format compatible with the rest of the code
+                    return response["choices"][0]["message"]
+            
+            # Regular OpenAI client
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
