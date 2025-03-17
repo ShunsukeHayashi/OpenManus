@@ -1,0 +1,179 @@
+{
+  "name": "データ分析アシスタント",
+  "description": "データ分析に関する質問に答え、コードを実行し、結果を可視化するアシスタント",
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "position": null,
+        "data": {
+          "title": "開始",
+          "type": "start",
+          "variables": [
+            {
+              "variable": "質問",
+              "type": "string",
+              "required": true,
+              "default": ""
+            }
+          ]
+        }
+      },
+      {
+        "id": "knowledge-retrieval_0",
+        "position": null,
+        "data": {
+          "title": "知識検索",
+          "type": "knowledge-retrieval",
+          "query_variable_selector": [
+            "sys",
+            "query"
+          ],
+          "dataset_ids": [],
+          "retrieval_mode": "multiple",
+          "single_retrieval_config": null,
+          "multiple_retrieval_config": {
+            "top_k": 3,
+            "score_threshold": 0.5,
+            "reranking_model": null
+          }
+        }
+      },
+      {
+        "id": "code_1",
+        "position": null,
+        "data": {
+          "title": "Pythonコード実行",
+          "type": "code",
+          "language": "python",
+          "code": "import pandas as pd\nimport matplotlib.pyplot as plt\nimport io\nimport base64\n\n# サンプルデータの作成\ndata = {'カテゴリ': ['A', 'B', 'C', 'D'], '値': [10, 25, 15, 30]}\ndf = pd.DataFrame(data)\n\n# グラフの作成\nplt.figure(figsize=(10, 6))\nplt.bar(df['カテゴリ'], df['値'], color='skyblue')\nplt.title('データ分析結果')\nplt.xlabel('カテゴリ')\nplt.ylabel('値')\n\n# 画像をBase64エンコード\nbuffer = io.BytesIO()\nplt.savefig(buffer, format='png')\nbuffer.seek(0)\nimg_str = base64.b64encode(buffer.read()).decode('utf-8')\n\n# 結果を返す\nresult = {\n    'データフレーム': df.to_dict(),\n    'グラフ': f'data:image/png;base64,{img_str}',\n    '分析結果': 'カテゴリDが最も高い値を示しています。'\n}\n\nresult"
+        }
+      },
+      {
+        "id": "llm_2",
+        "position": null,
+        "data": {
+          "title": "言語モデル",
+          "type": "llm",
+          "model": {
+            "provider": "openai",
+            "name": "gpt-3.5-turbo",
+            "mode": "chat",
+            "completion_params": {
+              "temperature": 0.7,
+              "top_p": 1,
+              "presence_penalty": 0,
+              "frequency_penalty": 0,
+              "max_tokens": 1000
+            }
+          },
+          "prompt_template": [
+            {
+              "role": "user",
+              "text": "以下のデータ分析結果について、詳細な説明を日本語で提供してください。\n\n質問: {{#sys.query#}}\n\nコード実行結果: {{#code.result#}}"
+            }
+          ],
+          "memory": {
+            "role_prefix": null,
+            "window": {
+              "enabled": true,
+              "max_messages": 10
+            }
+          },
+          "context": {
+            "enabled": false,
+            "variable_selector": null
+          },
+          "vision": {
+            "enabled": false,
+            "variable_selector": null,
+            "configs": null
+          }
+        }
+      },
+      {
+        "id": "template-transform_3",
+        "position": null,
+        "data": {
+          "title": "テンプレート変換",
+          "type": "template-transform",
+          "template": "# データ分析結果\n\n## 質問\n{{#sys.query#}}\n\n## 分析\n{{#llm.text#}}\n\n## 可視化\n![データ分析グラフ]({{#code.result.グラフ#}})"
+        }
+      },
+      {
+        "id": "answer_4",
+        "position": null,
+        "data": {
+          "title": "回答",
+          "type": "answer",
+          "answer": "{{#template-transform.text#}}"
+        }
+      },
+      {
+        "id": "end",
+        "position": null,
+        "data": {
+          "title": "終了",
+          "type": "end",
+          "outputs": [
+            {
+              "variable": "result",
+              "value_selector": [
+                "template-transform",
+                "text"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "start-knowledge-retrieval_0",
+        "source": "start",
+        "target": "knowledge-retrieval_0"
+      },
+      {
+        "id": "knowledge-retrieval_0-code_1",
+        "source": "knowledge-retrieval_0",
+        "target": "code_1"
+      },
+      {
+        "id": "code_1-llm_2",
+        "source": "code_1",
+        "target": "llm_2"
+      },
+      {
+        "id": "llm_2-template-transform_3",
+        "source": "llm_2",
+        "target": "template-transform_3"
+      },
+      {
+        "id": "template-transform_3-answer_4",
+        "source": "template-transform_3",
+        "target": "answer_4"
+      },
+      {
+        "id": "answer_4-end",
+        "source": "answer_4",
+        "target": "end"
+      }
+    ]
+  },
+  "features": {
+    "opening_statement": "こんにちは、データ分析アシスタントです。どのようなデータ分析をお手伝いしましょうか？",
+    "suggested_questions": [
+      "売上データの傾向分析をしてください",
+      "顧客セグメントの分類方法を教えてください",
+      "時系列データの予測モデルを作成してください"
+    ],
+    "suggested_questions_after_answer": [],
+    "speech_to_text": false,
+    "text_to_speech": false,
+    "file_upload": true,
+    "sensitive_word_avoidance": false,
+    "retriever_resource": {
+      "enabled": true
+    }
+  }
+}
