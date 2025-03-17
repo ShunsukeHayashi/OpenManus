@@ -5,7 +5,7 @@ from app.config import config
 from tenacity import retry, stop_after_attempt, wait_exponential
 from app.tool.base import BaseTool
 from app.tool.search import (
-    BaiduSearchEngine,
+    # BaiduSearchEngine,  # Comment out to avoid dependency issues
     DuckDuckGoSearchEngine,
     GoogleSearchEngine,
     WebSearchEngine,
@@ -33,7 +33,7 @@ class WebSearch(BaseTool):
     }
     _search_engine: dict[str, WebSearchEngine] = {
         "google": GoogleSearchEngine(),
-        "baidu": BaiduSearchEngine(),
+        # "baidu": BaiduSearchEngine(),  # Comment out to avoid dependency issues
         "duckduckgo": DuckDuckGoSearchEngine(),
     }
 
