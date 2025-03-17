@@ -3,6 +3,7 @@ from typing import Dict, List, Union
 from app.agent.base import BaseAgent
 from app.flow.base import BaseFlow, FlowType
 from app.flow.planning import PlanningFlow
+from app.flow.dify_automation_flow import DifyAutomationFlow
 
 
 class FlowFactory:
@@ -16,6 +17,7 @@ class FlowFactory:
     ) -> BaseFlow:
         flows = {
             FlowType.PLANNING: PlanningFlow,
+            FlowType.DIFY_AUTOMATION: DifyAutomationFlow,
         }
 
         flow_class = flows.get(flow_type)

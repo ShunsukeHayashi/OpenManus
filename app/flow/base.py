@@ -9,6 +9,7 @@ from app.agent.base import BaseAgent
 
 class FlowType(str, Enum):
     PLANNING = "planning"
+    DIFY_AUTOMATION = "dify_automation"
 
 
 class BaseFlow(BaseModel, ABC):
